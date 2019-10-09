@@ -4,14 +4,16 @@ using Com.game;
 
 public class View : MonoBehaviour
 {
-    IUserActions act;
+    IUserAction act;
     GameSceneController my;
+    Judgement state;
     float width, height;
 
     void Start()
     {
         my = GameSceneController.GetInstance();
-        act = GameSceneController.GetInstance() as IUserActions;
+        act = GameSceneController.GetInstance() as IUserAction;
+        state = GameSceneController.GetInstance() as Judgement;
     }
 
     float stw(float scale)
@@ -28,17 +30,10 @@ public class View : MonoBehaviour
     {
         width = Screen.width / 15;
         height = Screen.height / 15;
-        print(my.state);
-        if (my.state == State.WIN)
+        string message = state.Is_message();
+        if (message != "") 
         {
             if (GUI.Button(new Rect(stw(2f), sth(6f), width, height), "Your Win!"))
-            {
-                act.restart();
-            }
-        }
-        else if (my.state == State.LOSE)
-        {
-            if (GUI.Button(new Rect(stw(2f), sth(6f), width, height), "Your Lose!"))
             {
                 act.restart();
             }
@@ -46,7 +41,7 @@ public class View : MonoBehaviour
         else
         {
             //通过接口实现动作
-                if (my.state == State.START || my.state == State.END)
+                if (!state.Is_moving())
             {
                 if (GUI.Button(new Rect(stw(2f), sth(6f), width, height), "GO"))
                 {

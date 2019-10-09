@@ -22,7 +22,10 @@ public class Controller : MonoBehaviour
     Vector3 bankEnd = new Vector3(0, 0, 12);
     Vector3 boatEnd = new Vector3(0, 0, 4);
     Vector3 River = new Vector3(0, -1.6f, 0f);
+    Vector3 rightBpos = new Vector3(0, 1.2f, -1.2f);
+    Vector3 leftBpos = new Vector3(0, 1.2f, 1.2f);
     public float speed = 50f;
+    int side = 1;
 
     void Start()
     {
@@ -41,20 +44,27 @@ public class Controller : MonoBehaviour
 
         for (int i = 0; i < 3; ++i)
         {
-            p_start.Push(Instantiate(Resources.Load("Prefabs/Priest")) as GameObject);
-            d_start.Push(Instantiate(Resources.Load("Prefabs/Devil")) as GameObject);
+            GameObject priest = Instantiate(Resources.Load("Prefabs/Priest")) as GameObject;
+            priest.transform.position = getCharacterPosition(priestStart, i);
+            priest.tag = "Priest";
+            p_start.Push(priest);
+            GameObject devil = Instantiate(Resources.Load("Prefabs/Devil")) as GameObject;
+            devil.transform.position = getCharacterPosition(devilStart, i);
+            priest.tag = "Priest";
+            d_start.Push(devil);
         }
     }
 
     //检查游戏状态
     void check()
     {
+        GameSceneController scene = GameSceneController.GetInstance();
         int p_on_Bank = 0, d_on_Bank = 0;
         int p_s = 0, d_s = 0, p_e = 0, d_e = 0;
 
         if (p_end.Count == 3 && d_end.Count == 3)
         {
-            my.state = State.WIN;
+            scene.Set_message("Win!");
             return;
         }
 
@@ -65,14 +75,14 @@ public class Controller : MonoBehaviour
             else if (boat[i] != null && boat[i].tag == "Devil")
                 d_on_Bank++;
         }
-        if (my.state == State.START)
+        if (side == 1)
         {
-            p_s = p_start.Count + p_on_Bank;
-            d_s = d_start.Count + d_on_Bank;
             p_e = p_end.Count;
             d_e = d_end.Count;
+            p_s = p_start.Count + p_on_Bank;
+            d_s = d_start.Count + d_on_Bank;
         }
-        else if (my.state == State.END)
+        else if (side == 2)
         {
             p_e = p_on_Bank + p_end.Count;
             d_e = d_on_Bank + d_end.Count;
@@ -81,7 +91,7 @@ public class Controller : MonoBehaviour
         }
         if ((p_e < d_e && p_e != 0) || (p_s < d_s && p_s != 0))
         {
-            my.state = State.LOSE;
+            scene.Set_message("Lose!");
         }
     }
 
@@ -100,16 +110,18 @@ public class Controller : MonoBehaviour
         if (boatCapacity() != 0)
         {
             obj.transform.parent = boat_obj.transform; //把船设置为游戏角色的子对象
+            Vector3 target = new Vector3();
             if (boat[0] == null)
             {
                 boat[0] = obj;
-                obj.transform.localPosition = new Vector3(0, -0.9f, 0);
+                target = boat_obj.transform.position + leftBpos;
             }
             else
             {
                 boat[1] = obj;
-                obj.transform.localPosition = new Vector3(0, -0.9f, 0.3f);
+                target = boat_obj.transform.position + rightBpos;
             }
+            ActionManager.get_instance().ApplyMoveToTrans(obj, target, speed);
         }
     }
     //动作开船
@@ -117,46 +129,54 @@ public class Controller : MonoBehaviour
     {
         if (boatCapacity() != 2)
         {
-            if (my.state == State.START)
+            if (side == 1)
             {
-                my.state = State.STOE;
+                ActionManager.get_instance().ApplyMoveToAction(boat_obj, boatEnd, speed);
+                side = 2;
             }
-            else if (my.state == State.END)
+            else if (side == 2)
             {
-                my.state = State.ETOS;
+                ActionManager.get_instance().ApplyMoveToAction(boat_obj, boatStart, speed);
+                side = 1;
             }
         }
     }
 
     //动作下船
-    public void getOffTheBoat(int side)
+    public void getOffTheBoat(int s)
     {
-        if (boat[side] != null)
+        if (boat[s] != null)
         {
-            boat[side].transform.parent = null; //取消船和角色的父子关系
-            if (my.state == State.END)
+            Vector3 target = new Vector3();
+            boat[s].transform.parent = null; //取消船和角色的父子关系
+            if (side == 1)
             {
-                if (boat[side].tag == "Priest")
+                if (boat[s].tag == "Priest")
                 {
-                 p_end.Push(boat[side]);
+                    p_start.Push(boat[s]);
+                    target = getCharacterPosition(priestStart, p_start.Count - 1);
                 }
-                else if (boat[side].tag == "Devil")
+                else if (boat[s].tag == "Devil")
                 {
-                    d_end.Push(boat[side]);
+                    d_start.Push(boat[s]);
+                    target = getCharacterPosition(devilStart, d_start.Count - 1);
                 }
             }
-            else if (my.state == State.START)
+            else if (side == 2)
             {
-                if (boat[side].tag == "Priest")
+                if (boat[s].tag == "Priest")
                 {
-                    p_start.Push(boat[side]);
+                    p_end.Push(boat[s]);
+                    target = getCharacterPosition(priestEnd, p_end.Count - 1);
                 }
-                else if (boat[side].tag == "Devil")
+                else if (boat[s].tag == "Devil")
                 {
-                    d_start.Push(boat[side]);
+                    d_end.Push(boat[s]);
+                    target = getCharacterPosition(devilEnd, d_end.Count - 1);
                 }
             }
-            boat[side] = null;
+            ActionManager.get_instance().ApplyMoveToTrans(boat[s], target, speed);
+            boat[s] = null;
         }
     }
 
@@ -169,53 +189,36 @@ public class Controller : MonoBehaviour
         }
     }
 
+    Vector3 getCharacterPosition(Vector3 pos, int index)
+    {
+        return new Vector3(pos.x, pos.y, pos.z + 1.5f * index);
+    }
+
     public void priestStartOnBoat()
     {
-        if (my.state == State.START && p_start.Count != 0 && boatCapacity() != 0)
+        if (side == 1 && p_start.Count != 0 && boatCapacity() != 0)
             getOnBoat(p_start.Pop());
     }
 
     public void devilStartOnBoat()
     {
-        if (my.state == State.START && d_start.Count != 0 && boatCapacity() != 0)
+        if (side == 1 && d_start.Count != 0 && boatCapacity() != 0)
             getOnBoat(d_start.Pop());
     }
 
     public void priestEndOnBoat()
     {
-        if (my.state == State.END && p_end.Count != 0 && boatCapacity() != 0)
+        if (side == 2 && p_end.Count != 0 && boatCapacity() != 0)
             getOnBoat(p_end.Pop());
     }
 
     public void devilEndOnBoat()
     {
-        if (my.state == State.END && d_end.Count != 0 && boatCapacity() != 0)
+        if (side == 2 && d_end.Count != 0 && boatCapacity() != 0)
             getOnBoat(d_end.Pop());
     }
 
     void Update()
-    {
-        set_Position(p_start, priestStart);
-        set_Position(p_end, priestEnd);
-        set_Position(d_start, devilStart);
-        set_Position(d_end, devilEnd);
-
-        if (my.state == State.STOE)
-        {
-            boat_obj.transform.position = Vector3.MoveTowards(boat_obj.transform.position, boatEnd, speed * Time.deltaTime);
-            if (boat_obj.transform.position == boatEnd)
-            {
-                my.state = State.END;
-            }
-        }
-        else if (my.state == State.ETOS)
-        {
-            boat_obj.transform.position = Vector3.MoveTowards(boat_obj.transform.position, boatStart, speed * Time.deltaTime);
-            if (boat_obj.transform.position == boatStart)
-            {
-                my.state = State.START;
-            }
-        }
-        else check();
+    {        check();
     }
 }
